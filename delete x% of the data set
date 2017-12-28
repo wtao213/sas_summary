@@ -1,0 +1,70 @@
+/********************************************/
+/*  delete x% of the data set records       */
+/********************************************/
+
+/***********************************************/
+/* method 1: set macro variables fo the value */
+/**********************************************/
+
+/**********************************************************/
+/* cut off the highest 5% and lowest 5% tot_txn customers */
+/***********************************************************/
+proc sort data=fc_v1 out=fc_v1_nooutlier;
+              by tot_txn;
+run;
+ 
+proc summary data=fc_v1_nooutlier;
+       var tot_txn;
+       output out=test1 p5= p95= /autoname;
+run;
+ 
+data _null_;
+       set test1;
+       call symputx('p5',tot_txn_p5);
+       call symputx('p95',tot_txn_p95);
+run;
+%put &p5;
+%put &p95;
+ 
+data fc_v2;
+       set fc_v1_nooutlier;
+      
+       where &p5 le tot_txn le &p95;
+run;
+
+
+
+/********************************************/
+/* method 2: set two dataset in data setps */
+/********************************************/
+proc summary data=sashelp.cars;
+    var weight;
+    output out=_pctl(drop=_type_ _freq_) p5=_p5 p95=_p95;
+run;
+ 
+data cars_trimmed(drop=_:);
+    if _n_ = 1 then set _pctl;
+    set sashelp.cars;
+    if _p5 <= weight <= _p95;   * where does not work;
+run;
+
+
+/*****************************************/
+/* method 3: proc rank     */
+/****************************/
+proc rank data= a out=highlow groups=20; /* index original data in 20 groups by ranking */
+  var sbp;
+  ranks Range;
+run;
+
+proc sort data=hilow(where=(Range in (0,19))); /* leave the top,botton 5% , group 0 is lowest, group 19 is highest */
+  by sbp;
+runn;
+/* advantage for this: quick,simple,flexsible to any groups
+   disadvantage: not accurate enough, as some obs will have the same value */
+
+
+
+
+
+
