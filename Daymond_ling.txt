@@ -1,0 +1,121 @@
+--------------------------------------------
+ 
+ 
+%macro Concordance( data=_last_, class=, var=, tie=0.001 )
+      / des='Concordance of two class distribution';
+     
+%*----------------------------------------------------------------------------------;
+%*                                                                                  ;
+%*  Concordance measures the degree of agreement between individual decision and    ;
+%*  group decision.  Assume group mean(var) of class 1 (true) is greater than       ;
+%*  class 0 (false), the following conditions occur when comparing individual:      ;
+%*                                                                                  ;
+%*    class 1 var > class 0 var   agree with group decision, concordant             ;
+%*    class 1 var ~ class 0 var   tied, indifferent outcome                         ;
+%*    class 1 var < class 0 var   disagreement with group, discordant               ;
+%*                                                                                  ;
+%*----------------------------------------------------------------------------------;
+%*      D.Ling  Version 1.3 Dec, 2008                                               ;
+%*----------------------------------------------------------------------------------;
+ 
+%local   i nobs nvars dsid;
+ 
+%if %length(&class)=0 | %length(&var)=0 %then %do;
+    %put ;
+    %put %nrstr(Usage: %Concordance( [data=,] class=, var=, [tie=] ););
+    %put ;
+    %put Calculate degree of agreement between individual decision and group decision;
+    %put ;
+    %put data=dataset to analyze, default is _last_;
+    %put class=variable defining two class levels as follows:;
+    %put %nrstr(    true (1) is the class with higher average var, false (0) is the other class);
+    %put %nrstr(    var=variable to compare, missing values ignored);
+    %put %nrstr(    tie=difference within this tolerance are considered ties, default is 0.001);
+    %put ;
+    %put E.g., binary model concordance would use class=target, var=probability, tie=0.001;
+    %put ;
+    %return;
+%end;
+ 
+%*--------------------------------------------------------------------;
+%*                                                                    ;
+%*  Check data for reasonablility                                     ;
+%*                                                                    ;
+%*--------------------------------------------------------------------;
+ 
+%if %upcase(&data) = _LAST_ %then %let data=&syslast;
+ 
+%if %upcase(&data)=_NULL_ %then %do;
+    %put ERROR: input dataset is _NULL_;
+    %return;
+%end;
+ 
+%let dsid = %sysfunc( open( &data ) );
+ 
+%if &dsid > 0 %then %do;
+  %let nobs  = %sysfunc( attrn( &dsid, NOBS  ) );
+  %let nvars = %sysfunc( attrn( &dsid, NVARS ) );
+%end;
+%else %do;
+    %put %str(ERROR: can not open dataset [&data]);
+    %return;
+%end;
+ 
+%if &nobs <= 1 %then %do;
+    %let dsid = %sysfunc( close( &dsid ) );
+    %put ERROR: dataset [&data] has &nobs observations;
+    %return;
+%end;
+ 
+%if &nvars <= 1 %then %do;
+    %let dsid = %sysfunc( close( &dsid ) );
+    %put ERROR: dataset [&data] has &nvars variables;
+    %return;
+%end;
+ 
+%if %upcase(&class)=%upcase(&var) %then %do;
+    %put %nrstr(ERROR: class= and var= can not be the same variable);
+    %return;
+%end;
+ 
+%*--------------------------------------------------------------------;
+%*                                                                    ;
+%*  Check for existence of prob and target                            ;
+%*                                                                    ;
+%*--------------------------------------------------------------------;
+ 
+%let i = %sysfunc( varnum( &dsid, &class ) );
+%if &i = 0 %then %do;
+    %let i = %sysfunc( close( &dsid ) );
+    %put ERROR: class variable [&class] is not found in dataset [&data];
+    %return;
+%end;
+ 
+%if %sysfunc( vartype( &dsid, &i ) ) ^= N %then %do;
+    %let i = %sysfunc( close( &dsid ) );
+    %put ERROR: class variable [&class] is not numeric;
+    %return;
+%end;
+ 
+%let i = %sysfunc( varnum( &dsid, &var ) );
+%if &i = 0 %then %do;
+    %let i = %sysfunc( close( &dsid ) );
+    %put ERROR: var [&var] is not found in dataset [&data];
+    %return;
+%end;
+ 
+%if %sysfunc( vartype( &dsid, &i ) ) ^= N %then %do;
+    %let i = %sysfunc( close( &dsid ) );
+    %put ERROR: var [&var] is not numeric;
+    %return;
+%end;
+ 
+%let dsid = %sysfunc( close( &dsid ) );
+ 
+%*--------------------------------------------------------------------;
+%*                                                                    ;
+%*  Real work starts here                                             ;
+%*                                                                    ;
+%*--------------------------------------------------------------------;
+ 
+The checking is not completely exhaustive yet, but is good enough for most usage.
