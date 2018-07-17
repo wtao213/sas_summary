@@ -1,0 +1,42 @@
+/**		make a macro to run avoid to type multiple times  **/
+%let tdlogin=%unquote(user=wtao      pwd=lalala MODE=Teradata tdpid=tdprod1);     
+libname mytd teradata user=wtao      pwd=lalala MODE=Teradata tdpid=tdprod1 connection=global dbmstemp=yes    bulkload=yes;   /*TPT=YES   fastexport=YES */
+
+
+/* if trying to create a new table,then run this */
+PROC SQL;
+     connect to teradata( &tdlogin connection = global);
+     execute(
+	 create multiset volatile table USCAN_store_TXN as (
+select distinct a.EE_CONS_WALLT_ID, a.pos_trans_id, a.str_site_num, lpad(a.lane_num, 10, '0') as lane_num, b.rgn_num, b.ban_num, 
+				a.TOT_BSKT_QLFY_SL_AMT, a.item_ct
+				
+from RLDMPROD_V.CNSLD_LYLTY_BSKT_SUM a
+inner join (select distinct str_site_num, rgn_num, ban_num, site_div_nm from RLDMPROD_V.CNSLD_SITE_HIER where co_id = 1) b 
+			on a.str_site_num = b.str_site_num
+			
+inner join RLDMPROD_V.STR_SITE_LANE c on c.str_site_num = a.str_site_num
+
+
+where a.trans_dt between '2018-02-04' and '2018-06-30'
+and c.lane_ty_cd = 'S'
+and a.co_id = 1
+)
+WITH     DATA NO PRIMARY INDEX 
+ON       COMMIT PRESERVE ROWS;
+	 )  by teradata;
+	 	disconnect from teradata;
+quit;
+
+/* if just run the things inside table, not create or change a new table,use this template*/
+PROC SQL;
+     connect to teradata( &tdlogin connection = global);
+     select*from connection to teradata
+	 (select * from DLSDM_MKTD.uscan_store20180703;
+	 );
+	 	disconnect from teradata;
+quit;
+
+/* check my teradata lib status */
+proc datasets library=mytd ;
+run;
